@@ -1,3 +1,4 @@
+import numpy as np
 import random
 import re
 
@@ -9,6 +10,7 @@ from .language import Language
 from .utils.ngram import NGram
 from .utils.unicode_block import unicode_block
 
+RANGE = list(xrange(1, NGram.N_GRAM + 1))
 
 class Detector(object):
     '''
@@ -160,7 +162,8 @@ class Detector(object):
             while True:
                 self._update_lang_prob(prob, self.random.choice(ngrams), alpha)
                 if i % 5 == 0:
-                    if self._normalize_prob(prob) > self.CONV_THRESHOLD or i >= self.ITERATION_LIMIT:
+                    prob /= np.sum(prob) # normalize
+                    if i >= self.ITERATION_LIMIT or prob.max > self.CONV_THRESHOLD:
                         break
                     if self.verbose:
                         six.print_('>', self._sort_probability(prob))
@@ -175,14 +178,12 @@ class Detector(object):
         If there is the specified prior map, use it as initial map.
         '''
         if self.prior_map is not None:
-            return list(self.prior_map)
+            return np.array(self.prior_map)
         else:
-            return [1.0 / len(self.langlist)] * len(self.langlist)
+            return np.ones(len(self.langlist)) / len(self.langlist)
 
     def _extract_ngrams(self):
         '''Extract n-grams from target text.'''
-        RANGE = list(xrange(1, NGram.N_GRAM + 1))
-
         result = []
         ngram = NGram()
         for ch in self.text:
@@ -208,8 +209,8 @@ class Detector(object):
             six.print_('%s(%s): %s' % (word, self._unicode_encode(word), self._word_prob_to_string(lang_prob_map)))
 
         weight = alpha / self.BASE_FREQ
-        for i in xrange(len(prob)):
-            prob[i] *= weight + lang_prob_map[i]
+        prob *= lang_prob_map + weight
+
         return True
 
     def _word_prob_to_string(self, prob):
@@ -219,17 +220,6 @@ class Detector(object):
             if p >= 0.00001:
                 result += ' %s:%.5f' % (self.langlist[j], p)
         return result
-
-    def _normalize_prob(self, prob):
-        '''Normalize probabilities and check convergence by the maximun probability.
-        '''
-        maxp, sump = 0.0, sum(prob)
-        for i in xrange(len(prob)):
-            p = prob[i] / sump
-            if maxp < p:
-                maxp = p
-            prob[i] = p
-        return maxp
 
     def _sort_probability(self, prob):
         result = [Language(lang, p) for (lang, p) in zip(self.langlist, prob) if p > self.PROB_THRESHOLD]
