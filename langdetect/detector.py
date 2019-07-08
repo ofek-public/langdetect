@@ -163,7 +163,7 @@ class Detector(object):
                 self._update_lang_prob(prob, self.random.choice(ngrams), alpha)
                 if i % 5 == 0:
                     prob /= np.sum(prob) # normalize
-                    if i >= self.ITERATION_LIMIT or prob.max > self.CONV_THRESHOLD:
+                    if i >= self.ITERATION_LIMIT or prob.max() > self.CONV_THRESHOLD:
                         break
                     if self.verbose:
                         six.print_('>', self._sort_probability(prob))
